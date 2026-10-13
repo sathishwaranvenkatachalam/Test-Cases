@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employee Dialog – E2E Test Case Flowchart</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+    overflow-x: auto;
+  }
+
+  header {
+    background: #161b27;
+    border-bottom: 1px solid #2a3345;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #94b8ff;
+    letter-spacing: 0.01em;
+  }
+  header p { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+  .legend {
+    display: flex;
+    gap: 20px;
+    margin-left: auto;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #94a3b8;
+  }
+  .legend-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .legend-diamond {
+    width: 12px; height: 12px;
+    transform: rotate(45deg);
+    flex-shrink: 0;
+  }
+
+  .canvas-wrap {
+    padding: 32px 24px 80px;
+    min-width: 1200px;
+  }
+
+  svg#tree {
+    overflow: visible;
+    display: block;
+    margin: 0 auto;
+  }
+
+  /* Node base styles */
+  .node-step rect {
+    rx: 6px;
+    fill: #1e2533;
+    stroke: #334155;
+    stroke-width: 1.5;
+    transition: fill 0.15s, stroke 0.15s;
+  }
+  .node-step text { fill: #cbd5e1; font-size: 11px; }
+
+  .node-tc rect {
+    fill: #0f3058;
+    stroke: #3b82f6;
+    stroke-width: 2;
+    rx: 4px;
+    cursor: pointer;
+    transition: fill 0.15s, stroke 0.15s, filter 0.15s;
+  }
+  .node-tc text { fill: #93c5fd; font-size: 11px; font-weight: 600; cursor: pointer; }
+
+  /* Status colours on leaf nodes */
+  .status-Pass rect    { fill: #052e16; stroke: #22c55e; }
+  .status-Pass text    { fill: #86efac; }
+  .status-Fail rect    { fill: #2d0a0a; stroke: #ef4444; }
+  .status-Fail text    { fill: #fca5a5; }
+  .status-Partial rect { fill: #1c1306; stroke: #f59e0b; }
+  .status-Partial text { fill: #fcd34d; }
+
+  .node-tc:hover rect, .node-tc.highlighted rect {
+    filter: brightness(1.6);
+    stroke-width: 2.5;
+  }
+  .node-step.step-highlighted rect {
+    fill: #1a3a5c !important;
+    stroke: #60a5fa !important;
+    stroke-width: 2 !important;
+  }
+  .node-step.step-dim rect { opacity: 0.25; }
+  .node-step.step-dim text { opacity: 0.25; }
+  .node-tc.tc-dim rect   { opacity: 0.2; }
+  .node-tc.tc-dim text   { opacity: 0.2; }
+
+  .link {
+    fill: none;
+    stroke: #2a3a50;
+    stroke-width: 1.5;
+    transition: stroke 0.15s, stroke-width 0.15s;
+  }
+  .link.link-highlighted { stroke: #3b82f6; stroke-width: 2.5; }
+  .link.link-dim { stroke: #1a2230; }
+
+  /* Root node */
+  .node-root ellipse { fill: #1e3a5f; stroke: #60a5fa; stroke-width: 2; }
+  .node-root text { fill: #bfdbfe; font-size: 12px; font-weight: 700; }
+
+  /* Shared step — has blue left bar and count badge */
+  .node-step.step-shared rect:first-of-type { stroke: #2563eb; stroke-width: 1.5; }
+
+  /* Popup */
+  #popup {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: #161b27;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 0;
+    width: 520px;
+    max-height: 80vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    z-index: 500;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+    display: none;
+  }
+  #popup.show { display: flex; }
+  .popup-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid #2a3345;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .popup-header h2 { font-size: 13px; font-weight: 700; color: #e2e8f0; line-height: 1.4; }
+  .popup-close {
+    background: none; border: none; color: #64748b;
+    font-size: 18px; cursor: pointer; line-height: 1;
+    flex-shrink: 0; padding: 2px 4px;
+  }
+  .popup-close:hover { color: #e2e8f0; }
+  .popup-body { overflow-y: auto; padding: 16px 20px 20px; flex: 1; }
+
+  .tc-card {
+    background: #0f1117;
+    border: 1px solid #2a3345;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .tc-card:last-child { margin-bottom: 0; }
+  .tc-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .tc-id-badge {
+    font-size: 11px; font-weight: 700;
+    background: #1e3a5f;
+    color: #93c5fd;
+    padding: 2px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .tc-scenario { font-size: 12px; font-weight: 600; color: #e2e8f0; }
+  .status-badge {
+    margin-left: auto;
+    font-size: 10px; font-weight: 600;
+    padding: 2px 8px; border-radius: 10px;
+    flex-shrink: 0;
+  }
+  .badge-Pass    { background: #052e16; color: #86efac; border: 1px solid #22c55e; }
+  .badge-Fail    { background: #2d0a0a; color: #fca5a5; border: 1px solid #ef4444; }
+  .badge-Partial { background: #1c1306; color: #fcd34d; border: 1px solid #f59e0b; }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .info-item label { font-size: 10px; color: #64748b; display: block; margin-bottom: 2px; }
+  .info-item span  { font-size: 11px; color: #cbd5e1; }
+
+  .steps-label { font-size: 10px; color: #64748b; margin-bottom: 6px; margin-top: 10px; }
+  .step-list { display: flex; flex-direction: column; gap: 4px; }
+  .step-row {
+    display: flex; gap: 8px; align-items: flex-start;
+    font-size: 11px; color: #94a3b8;
+  }
+  .step-num {
+    font-size: 10px; color: #3b82f6;
+    font-weight: 600; min-width: 18px;
+    flex-shrink: 0; padding-top: 1px;
+  }
+  .step-text { color: #cbd5e1; line-height: 1.45; }
+
+  .evidence-box {
+    margin-top: 10px;
+    background: #0a0f1a;
+    border-left: 3px solid #334155;
+    border-radius: 0 4px 4px 0;
+    padding: 8px 10px;
+    font-size: 11px; color: #94a3b8; line-height: 1.5;
+  }
+  .evidence-label { font-size: 10px; color: #64748b; margin-bottom: 3px; }
+
+  .defect-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .defect-chip {
+    font-size: 10px; padding: 2px 8px; border-radius: 4px;
+    background: #2d0a0a; color: #f87171; border: 1px solid #7f1d1d;
+  }
+
+  /* ── Filter bar ── */
+  .filter-bar {
+    background: #111827;
+    border-bottom: 1px solid #1e2d40;
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 65px;
+    z-index: 99;
+  }
+  .filter-label {
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-right: 4px;
+    flex-shrink: 0;
+  }
+  .filter-group {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .filter-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px 4px 10px;
+    border-radius: 20px;
+    border: 1.5px solid transparent;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+    background: #1a2030;
+  }
+  .filter-chip .chip-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: transform 0.15s;
+  }
+  .filter-chip .chip-count {
+    font-size: 10px;
+    opacity: 0.7;
+    font-weight: 500;
+    margin-left: 2px;
+  }
+  /* Per-status chip colours */
+  .chip-Pass   { border-color: #22c55e; color: #86efac; }
+  .chip-Pass .chip-dot   { background: #22c55e; }
+  .chip-Fail   { border-color: #ef4444; color: #fca5a5; }
+  .chip-Fail .chip-dot   { background: #ef4444; }
+  .chip-Partial { border-color: #f59e0b; color: #fcd34d; }
+  .chip-Partial .chip-dot { background: #f59e0b; }
+  .chip-All    { border-color: #475569; color: #94a3b8; }
+  .chip-All .chip-dot    { background: #475569; }
+
+  .filter-chip.active { box-shadow: 0 0 0 3px rgba(255,255,255,0.08); }
+  .filter-chip.inactive { opacity: 0.38; }
+  .filter-chip:hover { opacity: 1 !important; transform: translateY(-1px); }
+
+  .filter-divider {
+    width: 1px; height: 18px;
+    background: #2a3345;
+    margin: 0 4px;
+  }
+  .filter-reset {
+    margin-left: auto;
+    font-size: 11px;
+    color: #3b82f6;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .filter-reset:hover { background: #1e2d40; }
+
+  /* TC nodes that are filtered out */
+  .node-tc.tc-filtered rect { opacity: 0.1 !important; }
+  .node-tc.tc-filtered text { opacity: 0.1 !important; }
+  .node-tc.tc-filtered { pointer-events: none; }
+  .node-step.step-filtered rect { opacity: 0.08 !important; }
+  .node-step.step-filtered text { opacity: 0.08 !important; }
+  .link.link-filtered { opacity: 0.06 !important; }
+
+  /* ── False positive styles ── */
+  .node-tc.fp rect {
+    stroke-dasharray: 5 3 !important;
+    opacity: 0.75;
+  }
+  /* FP badge rendered inside SVG as a <g> appended to the tc node */
+  .fp-badge rect  { fill: #4c1d95; }
+  .fp-badge text  { fill: #c4b5fd; font-size: 9px; font-weight: 700; }
+
+  /* Popup FP section */
+  .fp-section {
+    margin-top: 14px;
+    background: #0a0f1a;
+    border: 1px solid #312e81;
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .fp-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .fp-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #a78bfa;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .fp-section-title .fp-icon { font-size: 13px; }
+
+  .fp-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1.5px solid #6d28d9;
+    background: transparent;
+    color: #a78bfa;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .fp-toggle-btn:hover { background: #1e1b4b; }
+  .fp-toggle-btn.is-fp {
+    background: #4c1d95;
+    border-color: #7c3aed;
+    color: #ddd6fe;
+  }
+  .fp-toggle-btn.is-fp:hover { background: #5b21b6; }
+
+  .fp-note-area {
+    width: 100%;
+    background: #0f172a;
+    border: 1px solid #2a3345;
+    border-radius: 6px;
+    color: #cbd5e1;
+    font-size: 11px;
+    font-family: inherit;
+    padding: 8px 10px;
+    resize: vertical;
+    min-height: 60px;
+    line-height: 1.5;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+  }
+  .fp-note-area:focus { outline: none; border-color: #6d28d9; }
+  .fp-note-area::placeholder { color: #475569; }
+  .fp-note-label { font-size: 10px; color: #64748b; margin-bottom: 4px; display: block; }
+
+  .fp-save-btn {
+    margin-top: 8px;
+    padding: 4px 14px;
+    border-radius: 5px;
+    border: none;
+    background: #5b21b6;
+    color: #ddd6fe;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .fp-save-btn:hover { background: #6d28d9; }
+  .fp-saved-toast {
+    font-size: 10px;
+    color: #86efac;
+    margin-left: 8px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .fp-saved-toast.show { opacity: 1; }
+
+  .fp-meta {
+    font-size: 10px;
+    color: #64748b;
+    margin-top: 6px;
+  }
+
+  /* FP chip in filter bar */
+  .chip-FP { border-color: #7c3aed; color: #c4b5fd; }
+  .chip-FP .chip-dot { background: #7c3aed; }
+
+  /* Summary pill */
+  .filter-summary {
+    font-size: 11px;
+    color: #475569;
+    margin-left: 6px;
+  }
+  .filter-summary span { color: #94b8ff; font-weight: 600; }
+
+  #overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 499;
+    display: none;
+  }
+  #overlay.show { display: block; }
+
+  .tooltip {
+    position: fixed;
+    background: #1e2533;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 11px;
+    color: #cbd5e1;
+    pointer-events: none;
+    z-index: 300;
+    max-width: 260px;
+    line-height: 1.5;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Employee Dialog — E2E Test Case Hierarchy</h1>
+    <p>Shared steps · Click leaf nodes for details · Hover steps/nodes to trace flows</p>
+  </div>
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#1e2533;border:1px solid #334155"></div> Step
+    </div>
+    <div class="legend-item">
+      <div style="width:12px;height:12px;background:#1e2533;border:1.5px solid #2563eb;border-radius:2px;border-left:3px solid #3b82f6;flex-shrink:0"></div> Shared Step
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#0f3058;border:2px solid #3b82f6"></div> Test Case
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#052e16;border:1px solid #22c55e"></div> Pass
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#2d0a0a;border:1px solid #ef4444"></div> Fail
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#1c1306;border:1px solid #f59e0b"></div> Partial
+    </div>
+    <div class="legend-item" style="border-left:1px solid #2a3345;padding-left:16px;">
+      <div class="legend-dot" style="background:#4c1d95;border:1.5px dashed #7c3aed"></div> False Positive
+    </div>
+  </div>
+</header>
+
+<div class="filter-bar" id="filter-bar">
+  <span class="filter-label">Filter</span>
+  <div class="filter-group" id="filter-chips">
+    <!-- injected by JS -->
+  </div>
+  <div class="filter-divider"></div>
+  <span class="filter-summary" id="filter-summary"></span>
+  <button class="filter-reset" id="filter-reset">Reset</button>
+</div>
+
+<div class="canvas-wrap">
+  <svg id="tree"></svg>
+</div>
+
+<div id="overlay"></div>
+<div id="popup">
+  <div class="popup-header">
+    <h2 id="popup-title">Test Case Details</h2>
+    <button class="popup-close" id="popup-close">✕</button>
+  </div>
+  <div class="popup-body" id="popup-body"></div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────
+const RAW = [
+  { id:"EMP-001", module:"Personnel", scenario:"Open Edit Employee Dialog", objective:"Verify an existing employee can be opened from Personnel and all expected tabs are available", priority:"High", type:"E2E", status:"Pass", evidence:"All tabs present (Account, Details, Relatives, Benefits, Educations, Trainings, Attachments, Licenses, Projects). Dialog opens on Details tab.", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Select an existing employee.",
+    "Click Edit.",
+    "Observe the employee dialog.",
+    "Verify all tabs are displayed as applicable."
+  ]},
+  {
+  id:"EMP-002",
+  module:"Personnel / Account",
+  scenario:"Edit Account Information",
+  objective:"Verify Account information, logon name, and permissions can be updated and persisted",
+  priority:"Medium",
+  type:"Functional",
+  status:"Partial",
+  evidence:"[2026-10-08 run] First/last/email and logon name saved and persisted after full reload; System Administrator persisted. Company context and Project context are pre-checked and locked, so the select steps could not be exercised. DEF-04 not re-checked. Note: Account and Details names/email are the same fields.",
+  defects:"DEF-04",
+  steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Account tab.",
+    "Update First Name.",
+    "Update Last Name.",
+    "Update Email with a valid unique email.",
+    "Update Logon Name with a valid unique logon name.",
+    "Select the System Administrator permission.",
+    "Select the Company User permission.",
+    "Select the Project User permission.",
+    "Click Save & Continue.",
+    "Verify the changes are saved successfully.",
+    "Close the dialog.",
+    "Reopen the same employee.",
+    "Verify First Name, Last Name, Email, Logon Name, and selected permissions are persisted."
+  ]
+},
+  { id:"EMP-003", module:"Personnel / Details", scenario:"Basic Information", objective:"Verify all Basic Information fields, address lookup and country selection work correctly", priority:"Medium", type:"Functional", status:"Pass", evidence:"[2026-10-07 retest] All Basic Information fields saved and persisted. Card number '9876543210' and Expiration date '01.01.2027' both present after close and reopen (DEF-05 fixed). Zip 0150 → OSLO lookup OK. Phone persisted.", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Details → Basic Information.",
+    "Enter valid First Name, Last Name, Email and Phone.",
+    "Enter Birthdate.",
+    "Enter Street Name, Building Number and Post Box where applicable.",
+    "Enter a valid Zip Code.",
+    "Verify City is populated/updated by the zip-code lookup.",
+    "Select Country.",
+    "Enter Card Number.",
+    "Enter Expiration Date.",
+    "Save.",
+    "Reopen the employee."
+  ]},
+  { id:"EMP-004", module:"Personnel / Details", scenario:"Basic Information Validation", objective:"Verify mandatory/format validation prevents invalid Basic Information from being saved", priority:"Medium", type:"Functional", status:"Partial", evidence:"[2026-10-07 retest] First name is now required (red border when empty). Invalid email: red border only, no descriptive error message. Save is blocked — dialog stays on Details tab (DEF-02 fixed). Date mask rejects invalid dates. DEF-09 still active: validation shows red borders only, no inline text error messages. [2026-10-08 run] Save blocked by invalid email; DEF-09 reproduced (red border, no text). Date 31.02.2026 is silently changed to 28.02.2026, not rejected.", defects:"DEF-09", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Details → Basic Information.",
+    "Clear a required field.",
+    "Enter an invalid email format.",
+    "Enter invalid/unsupported values in date fields.",
+    "Attempt to save."
+  ]},
+  { id:"EMP-005", module:"Personnel / Details", scenario:"Employment Details", objective:"Verify Employment Details can be updated and persisted", priority:"Medium", type:"Functional", status:"Pass", evidence:"[2026-10-07 retest] Work hours changed 7.5→8, saved, persisted after close/reopen. QuickSaveUserWorkingHoursCommand now returns Success:true with UserId correctly populated. DEF-03 fixed.", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Details → Employment Details.",
+    "Update Employee Number.",
+    "Select Employee Status.",
+    "Set Date of Employment.",
+    "Set Last Day of Employment where applicable.",
+    "Open Position settings using the settings icon.",
+"Add a new Position.",
+"Verify the new Position is added successfully.",
+"Use the three-dot menu for the Position.",
+"Set the Position as Default.",
+"Verify the Position is marked as Default.",
+"Open the Position dropdown and verify the default Position is displayed correctly.",
+"Use the three-dot menu and delete the Position.",
+"Confirm the deletion when prompted.",
+"Open the Position dropdown and verify the deleted Position is no longer available.",
+"Verify the Position order in the dropdown matches the configured order.",
+
+"Open Group settings using the settings icon.",
+"Add a new Group.",
+"Verify the new Group is added successfully.",
+"Use the three-dot menu for the Group.",
+"Delete the Group using the three-dot menu.",
+"Confirm the deletion when prompted.",
+"Open the Group dropdown and verify the deleted Group is no longer available.",
+"Verify the Group order in the dropdown matches the configured order.",
+
+"Update Position.",
+"Update Default Project Roles.",
+"Update Group.",
+
+"Open Daily/Weekly settings using the settings icon.",
+"Add or configure the required Daily/Weekly setting.",
+"Verify the setting is added successfully.",
+"Verify the available actions from the three-dot menu.",
+"Verify Default option is not available for Daily/Weekly settings where applicable.",
+"Delete the Daily/Weekly setting using the three-dot menu.",
+"Confirm the deletion when prompted.",
+"Verify the deleted Daily/Weekly setting is no longer available.",
+
+"Set Work Hours to a valid positive value.",
+"Set Daily Work Hours to a valid positive value.",
+"Set Weekly Work Hours to a valid positive value.",
+"Verify Work Hours, Daily Work Hours, and Weekly Work Hours do not accept negative values.",
+"Enter a negative value in Work Hours.",
+"Verify the system prevents saving the negative value or displays an appropriate validation message.",
+"Enter a negative value in Daily Work Hours.",
+"Verify the system prevents saving the negative value or displays an appropriate validation message.",
+"Enter a negative value in Weekly Work Hours.",
+"Verify the system prevents saving the negative value or displays an appropriate validation message.",
+
+"Save the Employment Details.",
+"Verify the save operation completes successfully without an HTTP 400 error.",
+"Verify the Saved confirmation is displayed only when the data is actually persisted.",
+"Reopen the employee.",
+"Verify Employee Number, Employee Status, Date of Employment, Last Day of Employment, Position, Default Project Roles, Group, and Work Hours values are persisted.",
+"Verify deleted Position, Group, and Daily/Weekly settings are not available in their respective dropdowns."
+  ]},
+  { id:"EMP-006", module:"Personnel / Details", scenario:"More Details", objective:"Verify More Details fields and PlusTime options work correctly", priority:"Medium", type:"Functional", status:"Pass", evidence:"[2026-10-07 retest] Salary, account number, and payment day saved and persisted after close/reopen. All batch and send commands return Success:true. No HTTP 400. DEF-03 fixed.", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Details → More Details.",
+    "Select Work Calendar.",
+"Open PlusTime dropdown.",
+"Verify the three configured PlusTime options are available.",
+"Select a PlusTime option.",
+"Set PlusTime start date if applicable.",
+
+"Enter Probation Length.",
+"Select the applicable Probation Period.",
+"Verify the selected Probation Period is displayed correctly.",
+
+"Enter Notice Length.",
+"Select the applicable Notice Period.",
+"Verify the selected Notice Period is displayed correctly.",
+
+"Update Rate.",
+"Select Salary Type.",
+"Update Optional Salary Types where permitted.",
+"Update Optional Cost Templates where permitted.",
+"Update Hourly Rate where the logged-in user has permission.",
+
+"Enter Salary.",
+"Select Salary Per Overtime Basis.",
+"Enter Overtime 1 value.",
+"Enter Overtime 2 value.",
+
+"Enter Account Number.",
+"Set Payment Date.",
+"Verify the entered Account Number and Payment Date are displayed correctly.",
+
+"Save the employee.",
+"Verify the save operation completes successfully.",
+"Verify the Saved confirmation is displayed only when the data is actually persisted.",
+
+"Reopen the same employee.",
+"Open Details → More Details.",
+"Verify Work Calendar is persisted.",
+"Verify the selected PlusTime option is persisted.",
+"Verify PlusTime start date is persisted.",
+"Verify Probation Length and selected Probation Period are persisted.",
+"Verify Notice Length and selected Notice Period are persisted.",
+"Verify Rate and Salary Type are persisted.",
+"Verify Optional Salary Types and Optional Cost Templates are persisted where applicable.",
+"Verify Hourly Rate is persisted where the logged-in user has permission.",
+"Verify Salary is persisted.",
+"Verify Salary Per Overtime Basis is persisted.",
+"Verify Overtime 1 and Overtime 2 values are persisted.",
+"Verify Account Number is persisted.",
+"Verify Payment Date is persisted."
+  ]},
+  { id:"EMP-007", module:"Personnel / Logo", scenario:"Employee Logo", objective:"Verify logo upload/delete behavior for an existing employee", priority:"Medium", type:"Functional", status:"Pass", evidence:"[2026-10-08 run] Upload persists: after full page reload the avatar loads the uploaded image from the server. Delete persists: after delete, save and reload the avatar shows initials. DEF-07 did not reproduce; the 2026-10-07 Fail is stale.", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Logo tab.",
+    "Upload a supported employee image.",
+    "Save.",
+    "Reopen the employee.",
+    "Open Logo tab.",
+    "Delete the logo.",
+    "Save.",
+    "Reopen the employee."
+  ]},
+  { id:"EMP-008", module:"Personnel / Relatives", scenario:"Add Relative", objective:"Verify a relative can be added with all supported fields", priority:"Medium", type:"Functional", status:"Pass", evidence:"Relative added with all fields; listed.", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Relatives tab.",
+    "Click Add.",
+    "Enter First Name.",
+    "Enter Last Name.",
+    "Enter Birth Year.",
+    "Enter Phone.",
+    "Enter Email.",
+    "Select Relation.",
+    "Set Is Primary where applicable.",
+    "Enter Comments.",
+    "Save the relative.",
+    "Reopen Relatives tab."
+  ]},
+  { id:"EMP-009", module:"Personnel / Relatives", scenario:"Edit/Delete Relative", objective:"Verify an existing relative can be edited and deleted", priority:"Medium", type:"Functional", status:"Pass", evidence:"Edit prefilled, change saved, delete asks confirmation and removes row.", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Relatives tab for an employee with an existing relative.",
+    "Select the relative and choose Edit.",
+    "Change one or more fields.",
+    "Save.",
+    "Verify the updated relative.",
+    "Delete the relative.",
+    "Confirm deletion if prompted."
+  ]},
+  { id:"EMP-010", module:"Personnel / Benefits", scenario:"Add/Edit/Delete Benefit", objective:"Verify employee benefits can be created, edited and deleted", priority:"Medium", type:"Functional", status:"Pass", evidence:"Benefit add/edit value/delete with confirm OK.", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Benefits tab.",
+    "Click Add.",
+    "Enter Name.",
+    "Enter Value.",
+    "Set Start Date.",
+    "Set End Date where applicable.",
+    "Enter Comment.",
+    "Save.",
+    "Verify the benefit.",
+    "Edit the benefit and change the Value.",
+    "Save.",
+    "Delete the benefit.",
+    "Confirm deletion if prompted."
+  ]},
+  { id:"EMP-011", module:"Personnel / Education", scenario:"Add Education Record", objective:"Verify an education record can be added with attachment support", priority:"Medium", type:"Functional", status:"Pass", evidence:"Education added; attachment added via Add document > Upload files; appears in list.", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Education tab.",
+    "Click Add.",
+    "Enter Education Subject.",
+    "Enter Description.",
+    "Select Education Level.",
+    "Set Start date.",
+    "Set End date.",
+    "Enter Comment, save and click on edit button.",
+    "Add an attachment where supported.",
+    "Save/OK.",
+    "Reopen Education tab."
+  ]},
+  { id:"EMP-012", module:"Personnel / Education", scenario:"Edit/Delete Education Record", objective:"Verify an education record can be edited and removed", priority:"Medium", type:"Functional", status:"Pass", evidence:"Edit and delete (with confirm) OK.", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Education tab with an existing record.",
+    "Open the record for editing.",
+    "Change Description or Education Level.",
+    "Save/OK.",
+    "Verify the updated record.",
+    "Delete/remove the record using the available action.",
+    "Confirm if prompted."
+  ]},
+  { id:"EMP-013", module:"Personnel / Trainings", scenario:"Add Training Record", objective:"Verify a training record can be added with validity dates and attachment support", priority:"Medium", type:"Functional", status:"Pass", evidence:"Training added (Title is a dropdown). Attachment step not exercised separately (same component as Education).", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Trainings tab.",
+    "Click Add.",
+    "Enter Title.",
+    "Enter Description.",
+    "Set Valid From.",
+    "Set Expiration Date.",
+    "Enter Comment.",
+    "Add an attachment where supported.",
+    "Save/OK.",
+    "Reopen Trainings tab."
+  ]},
+  { id:"EMP-014", module:"Personnel / Trainings", scenario:"Edit/Delete Training Record", objective:"Verify a training record can be edited and removed", priority:"Medium", type:"Functional", status:"Pass", evidence:"Edit and delete (with confirm) OK.", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Trainings tab with an existing record.",
+    "Edit the record.",
+    "Change Description or Expiration Date.",
+    "Save/OK.",
+    "Verify updated data.",
+    "Delete/remove the record.",
+    "Confirm if prompted."
+  ]},
+  { id:"EMP-015", module:"Personnel / Attachments", scenario:"Manage Employee Attachments", objective:"Verify employee attachments can be uploaded and managed", priority:"Medium", type:"Functional", status:"Partial", evidence:"[2026-10-08 run] Upload OK (logo_test.png). Re-uploading the same name shows a Skip / Update / Rename prompt. Tree pane is visible (0px width not reproduced). Upload list showed the same file twice (cause unclear). Not run: subfolder create, rename, share/unshare, delete/trash. DEF-06 not re-checked.", defects:"DEF-06", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Attachments tab.",
+    "Verify the top-level directory is displayed.",
+    "Add a document using upload.",
+    "Repeat using drag-and-drop if supported.",
+    "Add a document from template if available.",
+    "Add a link.",
+    "Create a subdirectory.",
+    "Rename the subdirectory/document where supported.",
+    "Share an item/folder where supported.",
+    "Unshare it.",
+    "Delete an item/folder.",
+    "Confirm deletion if prompted."
+  ]},
+  { id:"EMP-016", module:"Personnel / Licenses", scenario:"Manage Employee Licenses", objective:"Verify license assignment state and totals are displayed correctly", priority:"Medium", type:"Functional", status:"Pass", evidence:"Product list with Assigned/Occupied/Total; 2 licenses assigned, saved, persisted after reopen; later unassigned.", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Licenses tab.",
+    "Review the Product Name list.",
+    "Verify Assigned values.",
+    "Verify Occupied Licenses and Total Licenses.",
+    "Select a license using its checkbox.",
+    "Use Select All where available.",
+    "Save if the UI provides a save action.",
+    "Reopen Licenses tab."
+  ]},
+  { id:"EMP-017", module:"Personnel / Projects", scenario:"Manage Employee Projects", objective:"Verify project assignments and project permissions can be viewed/updated", priority:"Medium", type:"Functional", status:"Pass", evidence:"Project number/name shown; 2 projects assigned, Project Administrator vs Participant persisted after reopen.", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open an existing employee and click Edit.",
+    "Open Projects tab.",
+    "Verify Project Number and Project Name are displayed.",
+    "Review Project Permissions.",
+    "Assign or update Project Administrator permission where permitted.",
+    "Assign or update project permissions where permitted.",
+    "Save the employee.",
+    "Reopen Projects tab."
+  ]},
+  { id:"EMP-018", module:"Personnel", scenario:"Add New Employee – Complete E2E", objective:"Verify a new internal employee can be created and the employee can subsequently be edited", priority:"High", type:"E2E", status:"Partial", evidence:"[2026-10-08 run] Employee created (Saved), licenses prompt shown; dialog stays open as the edit dialog instead of returning to the list (DEF-08 reproduced). Saved values and an edited phone number persisted after reopen; all 9 tabs present. Welcome-email path used; manual password path (DEF-01) not run.", defects:"DEF-08", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open Add/Create Employee.",
+    "Verify the new employee dialog opens.",
+    "Enter valid First Name.",
+    "Enter valid Last Name.",
+    "Enter a unique valid Email.",
+    "Complete required Account fields.",
+    "Open Details and complete required Basic Information.",
+    "Complete required Employment Details.",
+    "Complete required More Details if applicable.",
+    "Save/Create the employee.",
+    "Verify success feedback and return to Personnel list.",
+    "Search for the newly created employee.",
+    "Open the employee in Edit mode.",
+    "Verify saved Account and Details values.",
+    "Verify expected tabs are available for the newly created employee.",
+    "Update one editable field.",
+    "Save.",
+    "Reopen the employee and verify the update persists."
+  ]},
+  { id:"EMP-019", module:"Personnel", scenario:"Add Employee – Validation", objective:"Verify a new employee cannot be created with missing/invalid required data", priority:"Medium", type:"Functional", status:"Fail", evidence:"[2026-10-08 run] Empty form: Add now shows toast 'Some fields contain errors. Correct them and try again.' but no field highlight. Invalid email 'not-valid@@email': red border only, no text message (DEF-09 reproduced). NEW DEFECT: duplicate email qa.test1@example.com (already used by QA-Test Gamma) is accepted; Add created 'QA-Test Validation019b Invalid' with the duplicate email. Fix-and-resave step not run.", defects:"DEF-09, NEW-duplicate-email", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open Add/Create Employee.",
+    "Leave required fields empty.",
+    "Enter an invalid email.",
+    "Enter duplicate email if duplicate validation is supported.",
+    "Attempt to save/create.",
+    "Correct the invalid/missing fields.",
+    "Save/Create again."
+  ]},
+  { id:"EMP-020", module:"Personnel", scenario:"Add Employee – Cancel/Discard", objective:"Verify cancelling a new employee does not create an incomplete employee", priority:"Medium", type:"Functional", status:"Pass", evidence:"[2026-10-08 run] Close shows an 'unsaved changes' warning; confirming discards the typed data and creates no employee. DEF-10 did not reproduce; the 2026-10-07 Partial is stale.", defects:"", steps:[
+    "Login with required permissions.",
+    "Navigate to Company → Company Administration → Personnel.",
+    "Open Add/Create Employee.",
+    "Enter values in several fields.",
+    "Cancel/Close the dialog.",
+    "Confirm discard if prompted.",
+    "Return to Personnel list."
+  ]}
+];
+
+// ─────────────────────────────────────────────
+// BUILD TREE STRUCTURE — cross-module trie
+// Steps are normalised and shared across ALL test
+// cases regardless of module, so every genuinely
+// common path (Login → Navigate → Open Personnel
+// → …) appears exactly once in the tree.
+// Modules are shown as colour-coded tags on leaf
+// nodes, not as structural separators.
+// ─────────────────────────────────────────────
+
+// Normalise step text for deduplication
+function normStep(s) {
+  return s.toLowerCase()
+    .replace(/[.,!?;:→]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Canonicalise step labels that mean the same thing
+// across different test cases so the trie merges them.
+const STEP_ALIASES = [
+  // "Navigate to Company → Company Administration → Personnel"
+  // vs "Navigate to Company." then "Open Company Administration." then "Open Personnel."
+  // We keep them distinct — the trie will merge them only when text is literally identical.
+  // What we DO normalise: trailing punctuation, leading/trailing whitespace (done above).
+];
+
+// ── Build trie ──────────────────────────────
+// Each trie node: { id, stepText, normText, children[], belongsTo[] }
+// Root is a virtual "start" node.
+
+let _stepCounter = 0;
+function makeStepId() { return 'sn' + (++_stepCounter); }
+
+// Insert one TC's steps into the trie starting at `parent`
+function trieInsert(parent, steps, tcId) {
+  if (!steps.length) {
+    // Attach TC leaf
+    const leaf = { id: tcId, label: tcId, type: 'tc', tc: RAW.find(r => r.id === tcId), children: [], belongsTo: [tcId] };
+    parent.children.push(leaf);
+    return;
+  }
+  const [head, ...tail] = steps;
+  const norm = normStep(head);
+  // Look for existing child with same normalised text
+  let child = parent.children.find(c => c.type === 'step' && c.normText === norm);
+  if (child) {
+    child.belongsTo.push(tcId);
+  } else {
+    child = { id: makeStepId(), label: head, stepText: head, normText: norm, type: 'step', children: [], belongsTo: [tcId] };
+    parent.children.push(child);
+  }
+  trieInsert(child, tail, tcId);
+}
+
+// ── Collapse lone-child step chains ──────────
+// If a step node has exactly one child and that child is also a step,
+// they form an unbranching chain — keep them as-is (each is a real step).
+// We do NOT collapse them so each step stays visible and hoverable.
+
+// ── Build the root ───────────────────────────
+const trieRoot = { id: 'root', label: 'Employee\nDialog', type: 'root', children: [], belongsTo: [] };
+
+// Insert in ID order
+[...RAW].sort((a, b) => a.id.localeCompare(b.id)).forEach(tc => {
+  trieInsert(trieRoot, tc.steps, tc.id);
+});
+
+// ── Identify the "open employee" branch vs "add employee" branch ─────
+// Rather than hard-coding, we let the trie do it naturally.
+// But we annotate step nodes whose first child is still a step (not a TC)
+// to help the layout treat long unbranching chains compactly.
+
+const tree = trieRoot;
+
+// ─────────────────────────────────────────────
+// LAYOUT — width-first trie layout
+// ─────────────────────────────────────────────
+
+const STEP_W = 210, STEP_H_BASE = 32, STEP_LINE_H = 13;
+const TC_W   = 116, TC_H = 34;
+const HGAP   = 20,  VGAP = 52;
+const ROOT_W = 150, ROOT_H = 44;
+
+// Pre-compute wrapped lines and node height for every step node
+function estimateLines(text, maxW) {
+  const charW = 6.1;
+  const usable = maxW - 18;
+  const words = text.split(' ');
+  let lines = 1, cur = 0;
+  words.forEach(w => {
+    const ww = (w.length + 1) * charW;
+    if (cur + ww > usable && cur > 0) { lines++; cur = ww; }
+    else cur += ww;
+  });
+  return lines;
+}
+
+function nodeH(n) {
+  if (n.type === 'root') return ROOT_H;
+  if (n.type === 'tc')   return TC_H;
+  if (n._h) return n._h;
+  const lines = estimateLines(n.stepText || n.label, STEP_W);
+  n._h = Math.max(STEP_H_BASE, lines * STEP_LINE_H + 10);
+  return n._h;
+}
+
+// Bottom-up subtree width
+function layoutNode(node) {
+  if (!node.children.length) {
+    node.subtreeW = node.type === 'step' ? STEP_W : TC_W;
+    return;
+  }
+  node.children.forEach(c => layoutNode(c));
+  const totalChildren = node.children.reduce((s, c) => s + c.subtreeW, 0)
+                      + Math.max(0, node.children.length - 1) * HGAP;
+  const selfW = node.type === 'root' ? ROOT_W : node.type === 'step' ? STEP_W : TC_W;
+  node.subtreeW = Math.max(selfW, totalChildren);
+}
+
+// Top-down X assignment — children centred under parent
+function assignX(node, x) {
+  node.x = x + node.subtreeW / 2;
+  let cx = x;
+  node.children.forEach(c => {
+    assignX(c, cx);
+    cx += c.subtreeW + HGAP;
+  });
+}
+
+// Top-down Y — each node sits below its parent using actual heights
+function assignY(node, y) {
+  node.y = y;
+  const myH = nodeH(node);
+  node.children.forEach(c => assignY(c, y + myH + VGAP));
+}
+
+layoutNode(tree);
+assignX(tree, 0);
+assignY(tree, 40);
+
+// SVG canvas size
+let maxX = 0, maxY = 0;
+function walkBounds(n) {
+  const hw = n.type === 'step' ? STEP_W / 2 : n.type === 'root' ? ROOT_W / 2 : TC_W / 2;
+  maxX = Math.max(maxX, n.x + hw);
+  maxY = Math.max(maxY, n.y + nodeH(n));
+  n.children.forEach(walkBounds);
+}
+walkBounds(tree);
+const svgW = maxX + 40;
+const svgH = maxY + 40;
+
+// ─────────────────────────────────────────────
+// RENDER SVG
+// ─────────────────────────────────────────────
+const svg = document.getElementById('tree');
+svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+svg.setAttribute('width', svgW);
+svg.setAttribute('height', svgH);
+
+function wrapText(text, maxW) {
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  words.forEach(w => {
+    const test = cur ? cur + ' ' + w : w;
+    if(test.length * 6.2 > maxW - 16) {
+      if(cur) lines.push(cur);
+      cur = w;
+    } else { cur = test; }
+  });
+  if(cur) lines.push(cur);
+  return lines;
+}
+
+const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+svg.appendChild(defs);
+
+const links = document.createElementNS('http://www.w3.org/2000/svg','g');
+links.setAttribute('class','links');
+svg.appendChild(links);
+const nodes = document.createElementNS('http://www.w3.org/2000/svg','g');
+nodes.setAttribute('class','nodes');
+svg.appendChild(nodes);
+
+const nodeEls = {}; // id → SVG g element
+const linkEls = []; // {el, from, to}
+
+function makePath(x1,y1,x2,y2) {
+  const mid = (y1+y2)/2;
+  return `M${x1},${y1} C${x1},${mid} ${x2},${mid} ${x2},${y2}`;
+}
+
+// Module colour map for leaf tags
+const MOD_COLORS = {
+  'Personnel':               { bg:'#1e293b', stroke:'#60a5fa', text:'#93c5fd' },
+  'Personnel / Account':     { bg:'#1a1f35', stroke:'#818cf8', text:'#a5b4fc' },
+  'Personnel / Details':     { bg:'#1a2a1a', stroke:'#4ade80', text:'#86efac' },
+  'Personnel / Logo':        { bg:'#291e20', stroke:'#f87171', text:'#fca5a5' },
+  'Personnel / Relatives':   { bg:'#1e2935', stroke:'#38bdf8', text:'#7dd3fc' },
+  'Personnel / Benefits':    { bg:'#1f2a1a', stroke:'#a3e635', text:'#d9f99d' },
+  'Personnel / Education':   { bg:'#281e30', stroke:'#c084fc', text:'#d8b4fe' },
+  'Personnel / Trainings':   { bg:'#291e20', stroke:'#fb923c', text:'#fdba74' },
+  'Personnel / Attachments': { bg:'#1e2625', stroke:'#2dd4bf', text:'#99f6e4' },
+  'Personnel / Licenses':    { bg:'#291e26', stroke:'#f472b6', text:'#f9a8d4' },
+  'Personnel / Projects':    { bg:'#1a2030', stroke:'#facc15', text:'#fde047' },
+};
+
+function renderNode(n) {
+  // Draw link from parent
+  if (n.parent) {
+    const p = n.parent;
+    const fromY = p.y + nodeH(p);
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('class', 'link');
+    path.setAttribute('d', makePath(p.x, fromY, n.x, n.y));
+    path.dataset.from = p.id;
+    path.dataset.to   = n.id;
+    links.appendChild(path);
+    linkEls.push({ el: path, from: p.id, to: n.id });
+  }
+
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  nodeEls[n.id] = g;
+
+  // ── Root node ──────────────────────────────
+  if (n.type === 'root') {
+    g.setAttribute('class', 'node-root');
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+    el.setAttribute('cx', n.x); el.setAttribute('cy', n.y + ROOT_H / 2);
+    el.setAttribute('rx', ROOT_W / 2); el.setAttribute('ry', ROOT_H / 2);
+    g.appendChild(el);
+    const lns = wrapText(n.label, ROOT_W);
+    lns.forEach((l, i) => {
+      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      t.setAttribute('x', n.x);
+      t.setAttribute('y', n.y + ROOT_H / 2 - (lns.length - 1) * 7 + i * 14);
+      t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'middle');
+      t.textContent = l; g.appendChild(t);
+    });
+
+  // ── Step node ──────────────────────────────
+  } else if (n.type === 'step') {
+    // Shared step indicator: steps used by >1 TC get a faint left accent
+    const isShared = n.belongsTo.length > 1;
+    g.setAttribute('class', 'node-step' + (isShared ? ' step-shared' : ''));
+    g.dataset.stepId    = n.id;
+    g.dataset.belongsTo = JSON.stringify(n.belongsTo);
+
+    const h   = nodeH(n);
+    const lns = wrapText(n.stepText || n.label, STEP_W);
+
+    const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    r.setAttribute('x', n.x - STEP_W / 2); r.setAttribute('y', n.y);
+    r.setAttribute('width', STEP_W); r.setAttribute('height', h);
+    r.setAttribute('rx', 5);
+    g.appendChild(r);
+
+    // Shared badge — thin coloured bar on left edge
+    if (isShared) {
+      const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bar.setAttribute('x', n.x - STEP_W / 2); bar.setAttribute('y', n.y);
+      bar.setAttribute('width', 3); bar.setAttribute('height', h);
+      bar.setAttribute('rx', 2);
+      bar.setAttribute('fill', '#3b82f6');
+      bar.setAttribute('opacity', '0.7');
+      g.appendChild(bar);
+
+      // Tiny "×N" shared count badge top-right
+      const badgeW = 24, badgeH = 13;
+      const bx = n.x + STEP_W / 2 - badgeW - 2;
+      const by = n.y + 2;
+      const br = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      br.setAttribute('x', bx); br.setAttribute('y', by);
+      br.setAttribute('width', badgeW); br.setAttribute('height', badgeH);
+      br.setAttribute('rx', 3); br.setAttribute('fill', '#1e3a5f');
+      g.appendChild(br);
+      const bt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      bt.setAttribute('x', bx + badgeW / 2); bt.setAttribute('y', by + badgeH / 2);
+      bt.setAttribute('text-anchor', 'middle'); bt.setAttribute('dominant-baseline', 'middle');
+      bt.setAttribute('fill', '#60a5fa'); bt.setAttribute('font-size', '8');
+      bt.setAttribute('font-weight', '700');
+      bt.textContent = `×${n.belongsTo.length}`;
+      g.appendChild(bt);
+    }
+
+    lns.forEach((l, i) => {
+      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      t.setAttribute('x', n.x + (isShared ? 3 : 0));
+      t.setAttribute('y', n.y + h / 2 - (lns.length - 1) * STEP_LINE_H / 2 + i * STEP_LINE_H);
+      t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'middle');
+      t.textContent = l; g.appendChild(t);
+    });
+
+  // ── TC leaf node ───────────────────────────
+  } else if (n.type === 'tc') {
+    const st  = n.tc.status;
+    const mod = n.tc.module;
+    const mc  = MOD_COLORS[mod] || MOD_COLORS['Personnel'];
+
+    g.setAttribute('class', `node-tc status-${st}`);
+    g.dataset.tcId = n.id;
+    g.style.cursor = 'pointer';
+
+    const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    r.setAttribute('x', n.x - TC_W / 2); r.setAttribute('y', n.y);
+    r.setAttribute('width', TC_W); r.setAttribute('height', TC_H);
+    r.setAttribute('rx', 5);
+    g.appendChild(r);
+
+    // TC id label
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('x', n.x); t.setAttribute('y', n.y + 13);
+    t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'middle');
+    t.textContent = n.id; g.appendChild(t);
+
+    // Module tag below TC id
+    const modShort = mod.replace('Personnel / ', '').replace('Personnel', 'Main');
+    const tagW = Math.min(TC_W - 8, modShort.length * 5.8 + 10);
+    const tagX = n.x - tagW / 2;
+    const tagY = n.y + TC_H - 14;
+
+    const tr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    tr.setAttribute('x', tagX); tr.setAttribute('y', tagY);
+    tr.setAttribute('width', tagW); tr.setAttribute('height', 11);
+    tr.setAttribute('rx', 2); tr.setAttribute('fill', mc.bg);
+    tr.setAttribute('stroke', mc.stroke); tr.setAttribute('stroke-width', '0.8');
+    g.appendChild(tr);
+
+    const tt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    tt.setAttribute('x', n.x); tt.setAttribute('y', tagY + 5.5);
+    tt.setAttribute('text-anchor', 'middle'); tt.setAttribute('dominant-baseline', 'middle');
+    tt.setAttribute('fill', mc.text); tt.setAttribute('font-size', '7.5');
+    tt.setAttribute('font-weight', '600');
+    tt.textContent = modShort;
+    g.appendChild(tt);
+  }
+
+  nodes.appendChild(g);
+  n.children.forEach(c => { c.parent = n; renderNode(c); });
+}
+
+renderNode(tree);
+
+// ─────────────────────────────────────────────
+// INTERACTION HELPERS
+// ─────────────────────────────────────────────
+
+// Collect ancestry path for a TC leaf
+function getAllNodes(n, acc=[]) { acc.push(n); n.children.forEach(c=>getAllNodes(c,acc)); return acc; }
+const allNodes = getAllNodes(tree);
+
+function getAncestors(tcId) {
+  // Walk tree to find node with id, return path
+  function find(n, path=[]) {
+    if(n.id === tcId) return [...path, n];
+    for(const c of n.children) {
+      const r = find(c, [...path, n]);
+      if(r) return r;
+    }
+    return null;
+  }
+  return find(tree) || [];
+}
+
+function getNodeById(id) { return allNodes.find(n=>n.id===id); }
+
+function getDescendantIds(n) {
+  const ids = [n.id];
+  n.children.forEach(c => ids.push(...getDescendantIds(c)));
+  return ids;
+}
+
+// ─────────────────────────────────────────────
+// HOVER ON LEAF: highlight full path
+// ─────────────────────────────────────────────
+document.querySelectorAll('.node-tc').forEach(el => {
+  el.addEventListener('mouseenter', function(e) {
+    const tcId = this.dataset.tcId;
+    const path = getAncestors(tcId);
+    const pathIds = new Set(path.map(n=>n.id));
+
+    // Dim everything
+    allNodes.forEach(n => {
+      const el = nodeEls[n.id];
+      if(!el) return;
+      if(n.type==='step') el.classList.add('step-dim');
+      if(n.type==='tc') el.classList.add('tc-dim');
+    });
+    linkEls.forEach(l => { l.el.classList.add('link-dim'); l.el.classList.remove('link-highlighted'); });
+
+    // Highlight path
+    path.forEach(n => {
+      const el = nodeEls[n.id];
+      if(!el) return;
+      el.classList.remove('step-dim','tc-dim');
+      el.classList.add('step-highlighted');
+    });
+    linkEls.forEach(l => {
+      if(pathIds.has(l.from) && pathIds.has(l.to)) {
+        l.el.classList.remove('link-dim');
+        l.el.classList.add('link-highlighted');
+      }
+    });
+
+    showTooltip(e, `Click to see details for ${tcId}`);
+  });
+
+  el.addEventListener('mouseleave', function() {
+    clearHighlights();
+    hideTooltip();
+  });
+
+  el.addEventListener('click', function(e) {
+    e.stopPropagation();
+    const tcId = this.dataset.tcId;
+    openPopup([tcId]);
+  });
+});
+
+// ─────────────────────────────────────────────
+// HOVER ON STEP: show all TCs that include this step
+// ─────────────────────────────────────────────
+document.querySelectorAll('.node-step').forEach(el => {
+  el.addEventListener('mouseenter', function(e) {
+    const belongsTo = JSON.parse(this.dataset.belongsTo || '[]');
+    const stepId = this.dataset.stepId;
+
+    // Collect all paths for all TCs using this step
+    const allPathIds = new Set();
+    belongsTo.forEach(tcId => {
+      const path = getAncestors(tcId);
+      path.forEach(n => allPathIds.add(n.id));
+    });
+
+    // Dim non-involved
+    allNodes.forEach(n => {
+      const el = nodeEls[n.id];
+      if(!el) return;
+      if(!allPathIds.has(n.id)) {
+        if(n.type==='step') el.classList.add('step-dim');
+        if(n.type==='tc') el.classList.add('tc-dim');
+      }
+    });
+    linkEls.forEach(l => {
+      if(allPathIds.has(l.from) && allPathIds.has(l.to)) {
+        l.el.classList.add('link-highlighted');
+        l.el.classList.remove('link-dim');
+      } else {
+        l.el.classList.add('link-dim');
+      }
+    });
+    // Highlight this step specially
+    nodeEls[stepId] && nodeEls[stepId].classList.add('step-highlighted');
+
+    const tcLabels = belongsTo.join(', ');
+    showTooltip(e, `Used by: ${tcLabels}`);
+  });
+
+  el.addEventListener('mouseleave', function() {
+    clearHighlights();
+    hideTooltip();
+  });
+});
+
+function clearHighlights() {
+  allNodes.forEach(n => {
+    const el = nodeEls[n.id];
+    if(!el) return;
+    el.classList.remove('step-dim','tc-dim','step-highlighted','highlighted','tc-dim');
+  });
+  linkEls.forEach(l => {
+    l.el.classList.remove('link-dim','link-highlighted');
+  });
+}
+
+// ─────────────────────────────────────────────
+// FALSE POSITIVE — localStorage persistence
+// ─────────────────────────────────────────────
+const FP_KEY = 'emp_dialog_false_positives';
+
+function loadFP() {
+  try { return JSON.parse(localStorage.getItem(FP_KEY) || '{}'); }
+  catch { return {}; }
+}
+function saveFP(data) {
+  localStorage.setItem(FP_KEY, JSON.stringify(data));
+}
+function isFP(tcId) { return !!loadFP()[tcId]; }
+function getFPNote(tcId) { return (loadFP()[tcId] || {}).note || ''; }
+function getFPDate(tcId) { return (loadFP()[tcId] || {}).date || ''; }
+
+function setFP(tcId, marked, note) {
+  const data = loadFP();
+  if(marked) {
+    data[tcId] = { note: note || '', date: new Date().toISOString() };
+  } else {
+    delete data[tcId];
+  }
+  saveFP(data);
+}
+
+function fpCount() { return Object.keys(loadFP()).length; }
+
+// Apply FP visual to a TC SVG node
+function applyFPVisual(tcId) {
+  const el = nodeEls[tcId];
+  if(!el) return;
+  const fp = isFP(tcId);
+  if(fp) {
+    el.classList.add('fp');
+    // Add badge if not present
+    if(!el.querySelector('.fp-badge')) {
+      const node = allNodes.find(n => n.id === tcId);
+      if(node) {
+        const bg = document.createElementNS('http://www.w3.org/2000/svg','g');
+        bg.setAttribute('class','fp-badge');
+        const br = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        br.setAttribute('x', node.x + 30); br.setAttribute('y', node.y - 8);
+        br.setAttribute('width', 22); br.setAttribute('height', 13);
+        br.setAttribute('rx', 3);
+        const bt = document.createElementNS('http://www.w3.org/2000/svg','text');
+        bt.setAttribute('x', node.x + 41); bt.setAttribute('y', node.y - 1);
+        bt.setAttribute('text-anchor','middle'); bt.setAttribute('dominant-baseline','middle');
+        bt.textContent = 'FP';
+        bg.appendChild(br); bg.appendChild(bt);
+        el.appendChild(bg);
+      }
+    }
+  } else {
+    el.classList.remove('fp');
+    const badge = el.querySelector('.fp-badge');
+    if(badge) badge.remove();
+  }
+}
+
+function applyAllFPVisuals() {
+  RAW.forEach(tc => applyFPVisual(tc.id));
+}
+
+// ─────────────────────────────────────────────
+// POPUP
+// ─────────────────────────────────────────────
+function openPopup(tcIds) {
+  const tcs = tcIds.map(id => RAW.find(r=>r.id===id)).filter(Boolean);
+  if(!tcs.length) return;
+
+  document.getElementById('popup-title').textContent =
+    tcs.length === 1 ? `${tcs[0].id} — ${tcs[0].scenario}` : `${tcs.length} Test Cases`;
+
+  const body = document.getElementById('popup-body');
+  body.innerHTML = '';
+
+  tcs.forEach(tc => {
+    const card = document.createElement('div');
+    card.className = 'tc-card';
+    const defects = tc.defects ? tc.defects.split(',').map(d=>d.trim()).filter(Boolean) : [];
+    const fp = isFP(tc.id);
+    const fpNote = getFPNote(tc.id);
+    const fpDate = getFPDate(tc.id);
+
+    card.innerHTML = `
+      <div class="tc-card-header">
+        <span class="tc-id-badge">${tc.id}</span>
+        <span class="tc-scenario">${tc.scenario}</span>
+        <span class="status-badge badge-${tc.status}">${tc.status}</span>
+        ${fp ? `<span style="font-size:10px;background:#4c1d95;color:#c4b5fd;border:1px solid #6d28d9;padding:2px 7px;border-radius:4px;flex-shrink:0;">FP</span>` : ''}
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><label>Module</label><span>${tc.module}</span></div>
+        <div class="info-item"><label>Priority</label><span>${tc.priority}</span></div>
+        <div class="info-item"><label>Type</label><span>${tc.type}</span></div>
+        <div class="info-item"><label>Steps</label><span>${tc.steps.length}</span></div>
+      </div>
+      <div class="info-item" style="margin-bottom:6px"><label>Objective</label><span>${tc.objective}</span></div>
+      <div class="steps-label">TEST STEPS</div>
+      <div class="step-list">${tc.steps.map((s,i)=>`
+        <div class="step-row">
+          <span class="step-num">${i+1}.</span>
+          <span class="step-text">${s}</span>
+        </div>`).join('')}
+      </div>
+      ${tc.evidence ? `<div class="evidence-box"><div class="evidence-label">ACTUAL RESULT / EVIDENCE</div>${tc.evidence}</div>` : ''}
+      ${defects.length ? `<div class="defect-chips">${defects.map(d=>`<span class="defect-chip">${d}</span>`).join('')}</div>` : ''}
+
+      <div class="fp-section">
+        <div class="fp-section-header">
+          <span class="fp-section-title"><span class="fp-icon">⚑</span> False Positive</span>
+          <button class="fp-toggle-btn ${fp ? 'is-fp' : ''}" data-tcid="${tc.id}">
+            ${fp ? '✓ Marked as FP' : 'Mark as FP'}
+          </button>
+        </div>
+        <div class="fp-note-wrap" style="${!fp ? 'display:none' : ''}">
+          <label class="fp-note-label">Reason / Notes</label>
+          <textarea class="fp-note-area" data-tcid="${tc.id}" placeholder="Why is this a false positive? e.g. env issue, flaky dependency…">${fpNote}</textarea>
+          <div style="display:flex;align-items:center;">
+            <button class="fp-save-btn" data-tcid="${tc.id}">Save note</button>
+            <span class="fp-saved-toast" data-tcid="${tc.id}">Saved ✓</span>
+          </div>
+          ${fpDate ? `<div class="fp-meta">Marked ${new Date(fpDate).toLocaleString()}</div>` : ''}
+        </div>
+      </div>
+    `;
+    body.appendChild(card);
+
+    // Wire up toggle
+    const toggleBtn = card.querySelector('.fp-toggle-btn');
+    const noteWrap  = card.querySelector('.fp-note-wrap');
+    const noteArea  = card.querySelector('.fp-note-area');
+    const saveBtn   = card.querySelector('.fp-save-btn');
+    const toast     = card.querySelector('.fp-saved-toast');
+
+    toggleBtn.addEventListener('click', () => {
+      const nowFP = isFP(tc.id);
+      setFP(tc.id, !nowFP, nowFP ? '' : (noteArea ? noteArea.value : ''));
+      applyFPVisual(tc.id);
+      updateFPFilterChip();
+      // Re-render this card in place
+      openPopup(tcIds);
+    });
+
+    if(saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        setFP(tc.id, true, noteArea.value);
+        applyFPVisual(tc.id);
+        updateFPFilterChip();
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 1800);
+      });
+    }
+  });
+
+  document.getElementById('popup').classList.add('show');
+  document.getElementById('overlay').classList.add('show');
+}
+
+document.getElementById('popup-close').addEventListener('click', closePopup);
+document.getElementById('overlay').addEventListener('click', closePopup);
+function closePopup() {
+  document.getElementById('popup').classList.remove('show');
+  document.getElementById('overlay').classList.remove('show');
+}
+
+// ─────────────────────────────────────────────
+// TOOLTIP
+// ─────────────────────────────────────────────
+const tooltip = document.getElementById('tooltip');
+function showTooltip(e, text) {
+  tooltip.textContent = text;
+  tooltip.style.display = 'block';
+  moveTooltip(e);
+}
+function moveTooltip(e) {
+  let x = e.clientX + 14, y = e.clientY - 10;
+  if(x + 280 > window.innerWidth) x = e.clientX - 280;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
+}
+function hideTooltip() { tooltip.style.display = 'none'; }
+document.addEventListener('mousemove', e => {
+  if(tooltip.style.display === 'block') moveTooltip(e);
+});
+
+// ─────────────────────────────────────────────
+// FILTER
+// ─────────────────────────────────────────────
+
+// Derive all statuses dynamically from data
+const ALL_STATUSES = [...new Set(RAW.map(t => t.status))].sort();
+const STATUS_COUNTS = {};
+ALL_STATUSES.forEach(s => { STATUS_COUNTS[s] = RAW.filter(t => t.status === s).length; });
+
+// FP filter chip — separate from status chips; sits after divider
+const FP_FILTER_ID = '__FP__';
+let fpFilterActive = false;
+
+function updateFPFilterChip() {
+  const existing = document.getElementById('fp-filter-chip');
+  const count = fpCount();
+  if(existing) {
+    existing.querySelector('.chip-count').textContent = count;
+    existing.className = `filter-chip chip-FP ${fpFilterActive ? 'active' : count === 0 ? 'inactive' : ''}`;
+  }
+  updateFilterSummary();
+}
+
+// Active filter set — empty means "show all"
+let activeFilters = new Set(); // empty = All
+
+function buildFilterChips() {
+  const container = document.getElementById('filter-chips');
+  container.innerHTML = '';
+  const noStatusFilter = activeFilters.size === 0 && !fpFilterActive;
+
+  // "All" chip
+  const allChip = document.createElement('div');
+  allChip.className = 'filter-chip chip-All ' + (noStatusFilter ? 'active' : 'inactive');
+  allChip.innerHTML = `<span class="chip-dot"></span>All<span class="chip-count">${RAW.length}</span>`;
+  allChip.addEventListener('click', () => {
+    activeFilters.clear();
+    fpFilterActive = false;
+    applyFilter();
+  });
+  container.appendChild(allChip);
+
+  // Status chips
+  ALL_STATUSES.forEach(status => {
+    const chip = document.createElement('div');
+    chip.className = `filter-chip chip-${status} ${activeFilters.has(status) ? 'active' : noStatusFilter ? '' : 'inactive'}`;
+    chip.innerHTML = `<span class="chip-dot"></span>${status}<span class="chip-count">${STATUS_COUNTS[status]}</span>`;
+    chip.addEventListener('click', () => {
+      fpFilterActive = false;
+      activeFilters.has(status) ? activeFilters.delete(status) : activeFilters.add(status);
+      applyFilter();
+    });
+    container.appendChild(chip);
+  });
+
+  // Divider
+  const sep = document.createElement('div');
+  sep.style.cssText = 'width:1px;height:18px;background:#2a3345;margin:0 4px;flex-shrink:0;align-self:center;';
+  container.appendChild(sep);
+
+  // False Positive chip
+  const count = fpCount();
+  const fpChip = document.createElement('div');
+  fpChip.id = 'fp-filter-chip';
+  fpChip.className = `filter-chip chip-FP ${fpFilterActive ? 'active' : count === 0 ? 'inactive' : ''}`;
+  fpChip.title = count === 0 ? 'No false positives marked yet' : 'Show only false positive test cases';
+  fpChip.innerHTML = `<span class="chip-dot"></span>False Positive<span class="chip-count">${count}</span>`;
+  fpChip.addEventListener('click', () => {
+    if(count === 0) return;
+    fpFilterActive = !fpFilterActive;
+    if(fpFilterActive) activeFilters.clear();
+    applyFilter();
+  });
+  container.appendChild(fpChip);
+}
+
+function applyFilter() {
+  clearHighlights();
+  buildFilterChips();
+  updateFilterSummary();
+
+  // Determine which TC ids pass the current filter
+  const fpData = loadFP();
+  const visibleTcIds = new Set(
+    RAW.filter(t => {
+      if(fpFilterActive) return !!fpData[t.id];
+      if(activeFilters.size === 0) return true;
+      return activeFilters.has(t.status);
+    }).map(t => t.id)
+  );
+
+  // First pass: mark TC leaves
+  allNodes.forEach(n => {
+    const el = nodeEls[n.id];
+    if(!el) return;
+    if(n.type === 'tc') {
+      visibleTcIds.has(n.id) ? el.classList.remove('tc-filtered') : el.classList.add('tc-filtered');
+    }
+  });
+
+  // Second pass: step nodes visible if any descendant TC is visible
+  function hasVisibleDescendantTc(node) {
+    if(node.type === 'tc') return visibleTcIds.has(node.id);
+    return node.children.some(c => hasVisibleDescendantTc(c));
+  }
+
+  allNodes.forEach(n => {
+    const el = nodeEls[n.id];
+    if(!el) return;
+    if(n.type === 'step') {
+      hasVisibleDescendantTc(n) ? el.classList.remove('step-filtered') : el.classList.add('step-filtered');
+    }
+  });
+
+  // Links
+  linkEls.forEach(l => {
+    const fromNode = getNodeById(l.from);
+    const toNode   = getNodeById(l.to);
+    const fromOk = fromNode ? (fromNode.type === 'root' || hasVisibleDescendantTc(fromNode)) : true;
+    const toOk   = toNode   ? (toNode.type === 'tc' ? visibleTcIds.has(toNode.id) : hasVisibleDescendantTc(toNode)) : true;
+    (!fromOk || !toOk) ? l.el.classList.add('link-filtered') : l.el.classList.remove('link-filtered');
+  });
+}
+
+function updateFilterSummary() {
+  const summary = document.getElementById('filter-summary');
+  const fpData = loadFP();
+  const visible = RAW.filter(t => {
+    if(fpFilterActive) return !!fpData[t.id];
+    if(activeFilters.size === 0) return true;
+    return activeFilters.has(t.status);
+  }).length;
+  const fpC = fpCount();
+
+  if(fpFilterActive) {
+    summary.innerHTML = `<span>${visible}</span> of ${RAW.length} shown &mdash; False Positives`;
+  } else if(activeFilters.size === 0) {
+    summary.innerHTML = `Showing <span>${visible}</span> of ${RAW.length} test cases${fpC > 0 ? ` &middot; <span style="color:#a78bfa">${fpC} FP marked</span>` : ''}`;
+  } else {
+    summary.innerHTML = `<span>${visible}</span> of ${RAW.length} shown &mdash; ${[...activeFilters].join(', ')}`;
+  }
+}
+
+document.getElementById('filter-reset').addEventListener('click', () => {
+  activeFilters.clear();
+  fpFilterActive = false;
+  applyFilter();
+});
+
+// Init — apply FP visuals from localStorage, then build chips
+applyAllFPVisuals();
+buildFilterChips();
+updateFilterSummary();
+</script>
+</body>
+</html>
