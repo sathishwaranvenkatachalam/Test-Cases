@@ -8,6 +8,7 @@ import { buildPlan, loadPlannerCases } from './planner.js';
 import { spawnClaudeRun } from './claude.js';
 import { caseIsFullyRecorded, saveRecording, regenerateFlowScripts } from './scriptgen.js';
 import { renderStep, slugify } from './util.js';
+import { checkCdpReachable } from './chrome.js';
 import type { Plan, StepOp } from '../shared/types.js';
 
 export const bus = new EventEmitter();
@@ -356,6 +357,12 @@ async function executePlaywrightFlow(
   }
 
   const settings = getSettings();
+  const reachable = await checkCdpReachable(settings.cdpUrl);
+  if (!reachable) {
+    appendLog(runId, `CDP not reachable at ${settings.cdpUrl} — start Chrome with: chrome --remote-debugging-port=9222`);
+    finishAll('error', `Chrome not running with remote debugging. Start Chrome with: chrome --remote-debugging-port=9222`);
+    return;
+  }
   const env: NodeJS.ProcessEnv = { ...process.env, BASE_URL: baseUrl, CDP_URL: settings.cdpUrl };
   const proc = await runPlaywrightProcess(runId, `npx playwright test ${specRel} --reporter=json`, env);
   if (proc.stderr.trim() !== '') appendLog(runId, `[stderr] ${proc.stderr.trim().slice(-500)}`);
@@ -390,6 +397,7 @@ async function execute(
   mode: 'claude' | 'playwright',
   scope: 'all' | 'unverified' | 'failed',
   baseUrl: string,
+  casesOverride?: number[],
 ): Promise<void> {
   const flowStats: { flowId: number; stats: Plan['stats'] | null }[] = [];
   const totals: Record<CaseStatus, number> = { pass: 0, fail: 0, skipped: 0, error: 0 };
@@ -400,7 +408,12 @@ async function execute(
       if (entry?.cancelled) break;
       const flow = db.prepare('SELECT name FROM flows WHERE id = ?').get(flowId) as { name: string } | undefined;
       const flowName = flow?.name ?? `#${flowId}`;
-      const caseIds = selectCases(flowId, scope);
+      const caseIds = casesOverride
+        ? casesOverride.filter(id => {
+            const row = db.prepare('SELECT id FROM cases WHERE id = ? AND flow_id = ?').get(id, flowId) as { id: number } | undefined;
+            return !!row;
+          })
+        : selectCases(flowId, scope);
       if (caseIds.length === 0) {
         appendLog(runId, `no cases selected for flow ${flowName}`);
         continue;
@@ -413,7 +426,11 @@ async function execute(
     }
 
     const cancelled = activeRuns.get(runId)?.cancelled === true;
-    const finalStatus = cancelled ? 'cancelled' : allStatuses.every(s => s === 'pass') ? 'passed' : 'failed';
+    const finalStatus = cancelled
+      ? 'cancelled'
+      : allStatuses.length === 0
+        ? 'failed'
+        : allStatuses.every(s => s === 'pass') ? 'passed' : 'failed';
     db.prepare("UPDATE runs SET status = ?, stats_json = ?, finished_at = datetime('now') WHERE id = ?")
       .run(finalStatus, JSON.stringify({ flows: flowStats, totals }), runId);
     emitEvent(runId, { type: 'status', status: finalStatus });
@@ -429,7 +446,12 @@ async function execute(
   }
 }
 
-export function startRun(opts: { flowIds: number[]; mode: 'claude' | 'playwright'; scope: 'all' | 'unverified' | 'failed' }): number {
+export function startRun(opts: {
+  flowIds: number[];
+  mode: 'claude' | 'playwright';
+  scope: 'all' | 'unverified' | 'failed';
+  caseIds?: number[];
+}): number {
   const running = db.prepare("SELECT id FROM runs WHERE status = 'running' LIMIT 1").get();
   if (running) throw new Error('a run is already in progress');
 
@@ -442,13 +464,23 @@ export function startRun(opts: { flowIds: number[]; mode: 'claude' | 'playwright
   const runId = Number(info.lastInsertRowid);
 
   activeRuns.set(runId, { cancelled: false, kill: () => {} });
-  void execute(runId, opts.flowIds, opts.mode, opts.scope, baseUrl);
+  void execute(runId, opts.flowIds, opts.mode, opts.scope, baseUrl, opts.caseIds);
   return runId;
 }
 
 export function cancelRun(runId: number): boolean {
   const entry = activeRuns.get(runId);
-  if (!entry) return false;
+  if (!entry) {
+    // Orphaned run (server restarted) — force cancel via DB if still marked running.
+    const row = db.prepare("SELECT id FROM runs WHERE id = ? AND status = 'running'").get(runId) as { id: number } | undefined;
+    if (!row) return false;
+    db.prepare(
+      "UPDATE runs SET status = 'cancelled', finished_at = datetime('now') WHERE id = ?"
+    ).run(runId);
+    bus.emit(`run:${runId}`, { type: 'status', status: 'cancelled' } satisfies RunEvent);
+    bus.emit(`run:${runId}`, { type: 'done' } satisfies RunEvent);
+    return true;
+  }
   entry.cancelled = true;
   entry.kill();
   return true;

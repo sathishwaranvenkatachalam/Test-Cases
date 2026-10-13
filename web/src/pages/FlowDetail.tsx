@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api, jsonInit, type FlowDetailResponse, type FlowRow, type FlowSummary } from '../api';
+import { api, jsonInit, type CdpStatus, type FlowDetailResponse, type FlowRow, type FlowSummary, type UpdateStepPayload } from '../api';
 import Badge from '../components/Badge';
+import FlowChart from '../components/FlowChart';
 
 type Mode = 'claude' | 'playwright';
 type Scope = 'all' | 'unverified' | 'failed';
@@ -14,11 +15,14 @@ export default function FlowDetail() {
   const [data, setData] = useState<FlowDetailResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState('');
-  const [scope, setScope] = useState<Scope>('unverified');
+  const [scope, setScope] = useState<Scope>('all');
   const [message, setMessage] = useState<string | null>(null);
   const [script, setScript] = useState<{ path: string; content: string } | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [flows, setFlows] = useState<FlowSummary[]>([]);
+  const [openCaseId, setOpenCaseId] = useState<number | null>(null);
+  const [cdpStatus, setCdpStatus] = useState<CdpStatus | null>(null);
+  const [launchingChrome, setLaunchingChrome] = useState(false);
 
   const load = () => {
     api<FlowDetailResponse>(`/flows/${flowId}`)
@@ -26,8 +30,13 @@ export default function FlowDetail() {
       .catch((e: Error) => setError(e.message));
   };
 
+  const checkCdp = () => {
+    api<CdpStatus>('/system/cdp-status').then(setCdpStatus).catch(() => {});
+  };
+
   useEffect(() => {
     load();
+    checkCdp();
     api<FlowSummary[]>('/flows').then(setFlows).catch(() => setFlows([]));
     setScript(null);
     setMessage(null);
@@ -81,6 +90,45 @@ export default function FlowDetail() {
     }
   };
 
+  const runCase = async (caseId: number) => {
+    try {
+      const { id: runId } = await api<{ id: number }>(
+        '/runs',
+        jsonInit('POST', { flowIds: [flow.id], mode: 'claude', scope: 'all', caseIds: [caseId] }),
+      );
+      navigate(`/runs/${runId}`);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const launchChrome = async () => {
+    setLaunchingChrome(true);
+    try {
+      await api('/system/launch-chrome', { method: 'POST' });
+      setMessage('Chrome launching…');
+      let attempts = 0;
+      const poll = () => {
+        attempts++;
+        api<CdpStatus>('/system/cdp-status').then(s => {
+          setCdpStatus(s);
+          if (s.reachable) {
+            setMessage('Chrome is ready — you can now run Playwright tests.');
+          } else if (attempts < 15) {
+            setTimeout(poll, 1000);
+          } else {
+            setMessage('Chrome opened but remote debugging is not reachable on ' + s.cdpUrl + '. If another Chrome is already running on that port, close it and try again.');
+          }
+        }).catch(() => { if (attempts < 15) setTimeout(poll, 1000); });
+      };
+      setTimeout(poll, 1000);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLaunchingChrome(false);
+    }
+  };
+
   const deleteCase = async (caseId: number) => {
     if (!window.confirm('Delete this case?')) return;
     try {
@@ -98,6 +146,11 @@ export default function FlowDetail() {
     } catch (e) {
       setError((e as Error).message);
     }
+  };
+
+  const saveStep = async (caseId: number, position: number, patch: UpdateStepPayload) => {
+    await api(`/cases/${caseId}/steps/${position}`, jsonInit('PATCH', patch));
+    load();
   };
 
   const toggleExpanded = (caseId: number) => {
@@ -134,6 +187,11 @@ export default function FlowDetail() {
             </select>
           </label>
           <button type="button" onClick={() => run('playwright')}>Run (Playwright)</button>
+          {cdpStatus && !cdpStatus.reachable ? (
+            <button type="button" className="warn" onClick={launchChrome} disabled={launchingChrome}>
+              {launchingChrome ? 'Launching…' : 'Launch Chrome'}
+            </button>
+          ) : null}
           <button type="button" onClick={() => run('claude')}>Run (Claude)</button>
           <button type="button" onClick={regenerate}>Regenerate scripts</button>
           <button type="button" onClick={viewScript}>View script</button>
@@ -149,27 +207,25 @@ export default function FlowDetail() {
       ) : null}
 
       <h2>Plan</h2>
-      <p>
+      <p className="muted">
         {plan.stats.originalSteps} steps → {plan.stats.plannedSteps} steps ({plan.stats.savedPct}% saved)
       </p>
-      <div className="plan">
-        {plan.ops.length === 0 ? <p className="muted">No steps.</p> : null}
-        {plan.ops.map((op, i) => {
-          if (op.type === 'step') {
-            return (
-              <div key={i} className="plan-step" style={{ paddingLeft: op.ancestors.length * 18 }}>
-                <span className="muted">{op.nodeId}</span> {op.text}{' '}
-                <Badge status={op.mutability} />
-              </div>
-            );
-          }
-          return (
-            <div key={i} className="plan-replay">
-              ↻ replay from {op.fromBaseUrl ? 'base URL' : 'reset'}: {op.steps.map(s => s.text).join(' → ')}
-            </div>
-          );
-        })}
-      </div>
+      {plan.ops.length === 0 ? (
+        <p className="muted">No steps.</p>
+      ) : (
+        <FlowChart
+          flowId={flow.id}
+          flowName={flow.name}
+          ops={plan.ops}
+          cases={cases.map(c => ({ id: c.id, externalId: c.externalId, title: c.title, lastStatus: c.lastStatus }))}
+          onRunCase={runCase}
+          onCaseClick={(caseId) => {
+            setOpenCaseId(prev => prev === caseId ? null : caseId);
+            const el = document.getElementById(`case-row-${caseId}`);
+            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }}
+        />
+      )}
 
       <h2>Cases</h2>
       {cases.length === 0 ? <p className="muted">No cases in this flow.</p> : (
@@ -195,6 +251,7 @@ export default function FlowDetail() {
                 onToggle={() => toggleExpanded(c.id)}
                 onDelete={() => deleteCase(c.id)}
                 onMove={(fid) => moveCase(c.id, fid)}
+                onSaveStep={saveStep}
               />
             ))}
           </tbody>
@@ -212,12 +269,42 @@ interface CaseRowsProps {
   onToggle: () => void;
   onDelete: () => void;
   onMove: (flowId: number) => void;
+  onSaveStep: (caseId: number, position: number, patch: UpdateStepPayload) => Promise<void>;
 }
 
-function CaseRows({ c, open, flows, currentFlowId, onToggle, onDelete, onMove }: CaseRowsProps) {
+function CaseRows({ c, open, flows, currentFlowId, onToggle, onDelete, onMove, onSaveStep }: CaseRowsProps) {
+  const [editingPos, setEditingPos] = useState<number | null>(null);
+  const [editText, setEditText] = useState('');
+  const [editExpected, setEditExpected] = useState('');
+  const [editMutability, setEditMutability] = useState<'safe' | 'mutating' | 'reset'>('safe');
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = (s: FlowDetailResponse['cases'][number]['steps'][number]) => {
+    setEditingPos(s.position);
+    setEditText(s.text);
+    setEditExpected(s.expected ?? '');
+    setEditMutability(s.mutability);
+  };
+
+  const cancelEdit = () => setEditingPos(null);
+
+  const saveEdit = async (position: number) => {
+    setSaving(true);
+    try {
+      await onSaveStep(c.id, position, {
+        text: editText.trim() || undefined,
+        expected: editExpected.trim() || null,
+        mutability: editMutability,
+      });
+      setEditingPos(null);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <>
-      <tr className="clickable" onClick={onToggle}>
+      <tr id={`case-row-${c.id}`} className="clickable" onClick={onToggle}>
         <td>{c.externalId ?? `C${c.id}`}</td>
         <td>{c.title}</td>
         <td><Badge status={c.lastStatus} /></td>
@@ -246,8 +333,49 @@ function CaseRows({ c, open, flows, currentFlowId, onToggle, onDelete, onMove }:
             <ol className="steps">
               {c.steps.map(s => (
                 <li key={`${s.position}-${s.stepId}`}>
-                  {s.text} <Badge status={s.mutability} />
-                  {s.expected ? <span className="muted"> → {s.expected}</span> : null}
+                  {editingPos === s.position ? (
+                    <div className="step-edit" onClick={e => e.stopPropagation()}>
+                      <input
+                        className="step-edit-text"
+                        value={editText}
+                        onChange={e => setEditText(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Escape') cancelEdit(); }}
+                        autoFocus
+                      />
+                      <input
+                        className="step-edit-expected"
+                        placeholder="expected (optional)"
+                        value={editExpected}
+                        onChange={e => setEditExpected(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Escape') cancelEdit(); }}
+                      />
+                      <select
+                        value={editMutability}
+                        onChange={e => setEditMutability(e.target.value as 'safe' | 'mutating' | 'reset')}
+                      >
+                        <option value="safe">safe</option>
+                        <option value="mutating">mutating</option>
+                        <option value="reset">reset</option>
+                      </select>
+                      <button type="button" disabled={saving} onClick={() => saveEdit(s.position)}>
+                        {saving ? 'Saving…' : 'Save'}
+                      </button>
+                      <button type="button" onClick={cancelEdit}>Cancel</button>
+                    </div>
+                  ) : (
+                    <span className="step-view">
+                      {s.text} <Badge status={s.mutability} />
+                      {s.expected ? <span className="muted"> → {s.expected}</span> : null}
+                      <button
+                        type="button"
+                        className="step-edit-btn"
+                        onClick={e => { e.stopPropagation(); startEdit(s); }}
+                        title="Edit step"
+                      >
+                        ✎
+                      </button>
+                    </span>
+                  )}
                 </li>
               ))}
             </ol>

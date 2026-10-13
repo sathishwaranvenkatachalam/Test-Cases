@@ -5,11 +5,12 @@ import { db } from '../db.js';
 import { HttpError, isUniqueViolation, parseId, wrap } from '../http.js';
 import { flowCoverage, caseIsFullyRecorded, regenerateFlowScripts } from '../scriptgen.js';
 import { buildPlan, loadPlannerCases } from '../planner.js';
-import { renderStep, slugify } from '../util.js';
-import type { PlanOp } from '../../shared/types.js';
+import { renderStep, slugify, normalizeKey } from '../util.js';
+import type { PlanOp, Mutability } from '../../shared/types.js';
 
 const router = Router();
 const GEN_DIR = path.resolve('playwright', 'generated');
+const MUTABILITIES: Mutability[] = ['safe', 'mutating', 'reset'];
 
 interface FlowRow { id: number; name: string; created_at: string; }
 
@@ -154,6 +155,66 @@ router.delete('/cases/:id', wrap((req, res) => {
   db.prepare('DELETE FROM cases WHERE id = ?').run(caseId);
   regenSafe(c.flow_id);
   res.json({ ok: true });
+}));
+
+router.patch('/cases/:caseId/steps/:position', wrap((req, res) => {
+  const caseId = parseId(req.params.caseId);
+  const position = parseId(req.params.position);
+
+  const cs = db.prepare(
+    'SELECT case_id, position, step_id, params_json, expected FROM case_steps WHERE case_id = ? AND position = ?'
+  ).get(caseId, position) as { case_id: number; position: number; step_id: number; params_json: string; expected: string | null } | undefined;
+  if (!cs) throw new HttpError(404, 'step not found');
+
+  const caseRow = db.prepare('SELECT id, flow_id FROM cases WHERE id = ?').get(caseId) as { id: number; flow_id: number } | undefined;
+  if (!caseRow) throw new HttpError(404, 'case not found');
+
+  const body = req.body as { text?: unknown; expected?: unknown; mutability?: unknown } | undefined;
+
+  let stepId = cs.step_id;
+
+  if (typeof body?.text === 'string' && body.text.trim() !== '') {
+    const newText = body.text.trim();
+    const key = normalizeKey(newText);
+    const existing = db.prepare('SELECT id FROM steps WHERE key = ?').get(key) as { id: number } | undefined;
+    if (existing) {
+      stepId = existing.id;
+    } else {
+      const info = db.prepare(
+        "INSERT INTO steps (key, canonical_text, mutability) VALUES (?, ?, 'safe')"
+      ).run(key, newText);
+      stepId = Number(info.lastInsertRowid);
+    }
+    db.prepare(
+      "UPDATE case_steps SET step_id = ?, params_json = '{}' WHERE case_id = ? AND position = ?"
+    ).run(stepId, caseId, position);
+  }
+
+  if (body && 'expected' in body) {
+    const exp = typeof body.expected === 'string' && body.expected.trim() !== '' ? body.expected.trim() : null;
+    db.prepare('UPDATE case_steps SET expected = ? WHERE case_id = ? AND position = ?').run(exp, caseId, position);
+  }
+
+  if (typeof body?.mutability === 'string' && MUTABILITIES.includes(body.mutability as Mutability)) {
+    db.prepare('UPDATE steps SET mutability = ? WHERE id = ?').run(body.mutability, stepId);
+  }
+
+  regenSafe(caseRow.flow_id);
+
+  const updated = db.prepare(
+    `SELECT cs.position AS position, cs.step_id AS stepId, cs.expected AS expected,
+            s.canonical_text AS text, s.mutability AS mutability, cs.params_json AS params
+       FROM case_steps cs JOIN steps s ON s.id = cs.step_id
+      WHERE cs.case_id = ? AND cs.position = ?`
+  ).get(caseId, position) as { position: number; stepId: number; expected: string | null; text: string; mutability: string; params: string };
+
+  res.json({
+    position: updated.position,
+    stepId: updated.stepId,
+    text: renderStep(updated.text, JSON.parse(updated.params) as Record<string, string>),
+    mutability: updated.mutability,
+    expected: updated.expected,
+  });
 }));
 
 router.post('/flows/:id/generate-scripts', wrap((req, res) => {

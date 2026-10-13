@@ -151,7 +151,17 @@ export function regenerateFlowScripts(flowId: number): {
       if (st.expected && st.expected.trim() !== '') {
         out.push(`    // expected: ${commentSafe(st.expected)}`);
         const a = findAssert.get(st.stepId, paramsHash(params), expectedHash(st.expected)) as { code: string } | undefined;
-        if (a) out.push(...indentCode(a.code, 4));
+        if (a) {
+          const usesP = /\bp\[/.test(a.code) || /\bp\./.test(a.code);
+          if (usesP) {
+            out.push(`    {`);
+            out.push(`      const p: Record<string, string> = ${JSON.stringify(params)};`);
+            out.push(...indentCode(a.code, 6));
+            out.push(`    }`);
+          } else {
+            out.push(...indentCode(a.code, 4));
+          }
+        }
       }
     }
     out.push('  });');

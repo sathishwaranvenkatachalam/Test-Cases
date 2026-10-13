@@ -3,11 +3,11 @@ import { test, expect } from '../support';
 import * as S from './steps';
 
 test.describe("Personnel", () => {
-  // C18 skipped (missing recordings): step 62 action, step 63 action, step 63 assert, step 64 action, step 64 assert, step 10 action, step 10 assert, step 10 action, step 10 action, step 65 action, step 66 action, step 67 action, step 68 action, step 69 action, step 69 assert, step 70 action, step 70 assert, step 71 action, step 72 action, step 72 assert, step 73 action, step 73 assert, step 74 action, step 74 assert, step 75 action, step 75 assert, step 76 action, step 61 action, step 77 action, step 77 assert
-  // C19 skipped (missing recordings): step 63 action, step 78 action, step 78 assert, step 10 action, step 10 assert, step 10 action, step 10 assert, step 79 action, step 79 assert, step 80 action, step 69 action, step 69 assert
+  // C18 skipped (missing recordings): step 62 action, step 63 action, step 63 assert, step 64 action, step 64 assert, step 10 assert, step 65 action, step 66 action, step 67 action, step 68 action, step 69 action, step 69 assert, step 70 action, step 70 assert, step 71 action, step 72 action, step 72 assert, step 73 action, step 73 assert, step 74 action, step 74 assert, step 75 action, step 75 assert, step 76 action, step 61 action, step 77 action, step 77 assert
+  // C19 skipped (missing recordings): step 63 action, step 78 action, step 78 assert, step 10 assert, step 10 assert, step 79 action, step 79 assert, step 80 action, step 69 action, step 69 assert
   // C20 skipped (missing recordings): step 63 action, step 63 assert, step 81 action, step 82 action, step 82 assert, step 83 action, step 83 assert, step 71 action, step 72 action, step 72 assert
   // C21 skipped (missing recordings): step 84 action, step 85 action, step 85 action, step 85 action, step 85 action, step 85 action, step 86 action, step 86 action, step 86 action, step 86 action, step 87 action, step 88 action, step 60 action, step 89 action, step 89 assert, step 13 action, step 13 assert, step 90 action, step 90 assert, step 91 action, step 91 assert, step 13 action, step 13 assert
-  // C22 skipped (missing recordings): step 92 action, step 92 assert, step 93 action, step 93 assert, step 94 action, step 94 assert, step 9 action, step 9 assert, step 9 action, step 95 action, step 89 action, step 89 assert
+  // C22 skipped (missing recordings): step 92 action, step 92 assert, step 93 action, step 93 assert, step 94 action, step 94 assert, step 9 assert, step 95 action, step 89 action, step 89 assert
   test("C1 Open Edit Employee Dialog", async ({ page }) => {
     await S.step_1(page, {"permission":"Personnel management"});
     await S.step_2(page, {});

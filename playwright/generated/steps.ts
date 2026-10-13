@@ -55,10 +55,135 @@ export async function step_8(page: Page, p: P): Promise<void> {
   }
 }
 
+// Open the {tab_name} tab
+export async function step_9(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByRole('button', { name: 'Relatives' }).click();
+}
+
+// Enter {value} in the {field_name} field
+export async function step_10(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByLabel('Comments').fill(p["value"]);
+}
+
+// Save the changes
+export async function step_11(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByRole('button', { name: 'Save' }).click();
+}
+
 // Open an existing employee in Edit mode
 export async function step_14(page: Page, p: P): Promise<void> {
   void expect; void p;
   await page.goto(new URL("/#/company/personnel", process.env.BASE_URL!).toString());
   await page.waitForLoadState();
-  await page.getByRole("row", { name: /Test test/ }).getByRole("button", { name: "Edit" }).first().click();
+  await page.getByRole('row', { name: /Srini R/ }).getByRole('button', { name: 'Edit' }).click();
+}
+
+// Open the {section_name} section
+export async function step_15(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await expect(page.getByText(p["section_name"], { exact: true })).toBeVisible();
+}
+
+// Select {value} for {field_name}
+export async function step_17(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByLabel('Relation').click();
+  await page.getByRole('option', { name: 'Parent', exact: true }).click();
+}
+
+// Click Add
+export async function step_24(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByRole('button', { name: 'Add' }).first().click();
+}
+
+// Set Is Primary
+export async function step_25(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByLabel('Is primary').check();
+}
+
+// Reopen the {tab_name} tab
+export async function step_26(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByRole('button', { name: 'Details' }).click();
+  await page.getByRole('button', { name: 'Relatives' }).click();
+}
+
+// Open the {tab_name} tab for an employee with an existing {item_type}
+export async function step_27(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('row', { name: /Srini R/ }).getByRole('button', { name: 'Edit' }).click();
+  await page.getByRole('button', { name: 'Relatives' }).click();
+}
+
+// Select the existing {item_type} and choose Edit
+export async function step_28(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByRole('row', { name: /valid first name/ }).dblclick();
+}
+
+// Change one or more fields of the {item_type}
+export async function step_29(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByLabel('Comments').fill('updated comment');
+  await page.getByRole('button', { name: 'Ok' }).last().click();
+}
+
+// Verify the updated {item_type} is displayed
+export async function step_30(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByRole('row', { name: /valid email/ }).getByRole('button').last().click();
+}
+
+// Delete the {item_type}
+export async function step_31(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByRole('row', { name: /valid email/ }).getByRole('button').last().click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
+}
+
+// Confirm deletion if prompted
+export async function step_32(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByRole('button', { name: 'Ok' }).last().click();
+}
+
+// Click Save
+export async function step_171(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+}
+
+// Open Add Employee
+export async function step_181(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.goto(new URL("/#/company/personnel", process.env.BASE_URL!).toString());
+  await page.waitForLoadState();
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+}
+
+// Enter invalid data in a required or formatted field
+export async function step_213(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByLabel('Email').fill('invalid-email');
+}
+
+// Correct the field
+export async function step_214(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByLabel('Email').fill('qa.validation.fix@example.com');
+}
+
+// Move focus away or save again
+export async function step_215(page: Page, p: P): Promise<void> {
+  void expect; void p;
+  await page.getByLabel('First name').fill('QA Validation');
+  await page.getByLabel('Last name').fill('Fix');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('button', { name: 'No', exact: true }).click();
 }

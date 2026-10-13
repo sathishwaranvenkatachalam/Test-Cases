@@ -18,6 +18,12 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const jsonInit = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) });
 
+export interface UpdateStepPayload {
+  text?: string;
+  expected?: string | null;
+  mutability?: 'safe' | 'mutating' | 'reset';
+}
+
 export type { Settings };
 
 export interface FlowSummary {
@@ -49,7 +55,7 @@ export interface CaseDetail {
 }
 
 export type PlanOpView =
-  | { type: 'step'; nodeId: string; text: string; mutability: string; ancestors: string[] }
+  | { type: 'step'; nodeId: string; text: string; mutability: string; ancestors: string[]; caseIds: number[]; endsCases: number[] }
   | { type: 'replay'; fromBaseUrl: boolean; steps: { nodeId: string; text: string }[] };
 
 export interface FlowDetailResponse {
@@ -86,6 +92,8 @@ export interface IngestPayloadView {
 }
 
 export interface CommitResult { createdCases: number; updatedCases: number; newSteps: number; reviews: number; affectedFlowIds: number[]; }
+
+export interface CdpStatus { reachable: boolean; cdpUrl: string; }
 
 export interface StepRow { id: number; text: string; mutability: 'safe' | 'mutating' | 'reset'; usedBy: number; hasRecording: boolean; }
 

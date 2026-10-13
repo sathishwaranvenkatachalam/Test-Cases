@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, jsonInit, type RunDetailPayload } from '../api';
 import Badge from '../components/Badge';
+import LogPanel from '../components/LogPanel';
 
 type LiveEvent =
   | { type: 'status'; status: string }
@@ -20,7 +21,6 @@ export default function RunDetail() {
   const [data, setData] = useState<RunDetailPayload | null>(null);
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showLog, setShowLog] = useState(false);
   const liveIds = useRef(0);
 
   useEffect(() => {
@@ -157,12 +157,8 @@ export default function RunDetail() {
         </ul>
       )}
 
-      <h2>
-        <button type="button" className="link" onClick={() => setShowLog(!showLog)}>
-          {showLog ? 'Hide log' : 'Show log'}
-        </button>
-      </h2>
-      {showLog ? <pre className="log">{data.logs.join('\n')}</pre> : null}
+      <h2>Log</h2>
+      <LogPanel lines={data.logs} live={running} />
     </section>
   );
 }

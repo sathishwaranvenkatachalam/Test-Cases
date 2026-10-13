@@ -34,17 +34,24 @@ function buildRunPayload(runId: number) {
 }
 
 router.post('/runs', wrap((req, res) => {
-  const body = (req.body ?? {}) as { flowIds?: unknown; mode?: unknown; scope?: unknown };
+  const body = (req.body ?? {}) as { flowIds?: unknown; mode?: unknown; scope?: unknown; caseIds?: unknown };
   if (!Array.isArray(body.flowIds) || body.flowIds.length === 0 || !body.flowIds.every((x: unknown) => Number.isInteger(x))) {
     throw new HttpError(400, 'flowIds required');
   }
   if (typeof body.mode !== 'string' || !MODES.includes(body.mode)) throw new HttpError(400, 'invalid mode');
   if (typeof body.scope !== 'string' || !SCOPES.includes(body.scope)) throw new HttpError(400, 'invalid scope');
+  const caseIds: number[] | undefined =
+    body.caseIds === undefined
+      ? undefined
+      : Array.isArray(body.caseIds) && body.caseIds.every((x: unknown) => Number.isInteger(x))
+        ? (body.caseIds as number[])
+        : (() => { throw new HttpError(400, 'invalid caseIds'); })();
   try {
     const id = startRun({
       flowIds: body.flowIds as number[],
       mode: body.mode as 'claude' | 'playwright',
       scope: body.scope as 'all' | 'unverified' | 'failed',
+      caseIds,
     });
     res.json({ id });
   } catch (e) {
