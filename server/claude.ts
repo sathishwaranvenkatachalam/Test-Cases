@@ -4,6 +4,16 @@ import { stubJson, stubRunLines } from './stub.js';
 
 const isStub = () => process.env.CLAUDE_STUB === '1';
 
+function cleanEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const k of Object.keys(env)) {
+    if (k === 'CLAUDECODE' || k === 'CLAUDE_PID' || k.startsWith('CLAUDE_CODE_')) {
+      delete env[k];
+    }
+  }
+  return env;
+}
+
 function killProcess(child: ChildProcess): void {
   if (child.pid === undefined) return;
   if (process.platform === 'win32') {
@@ -33,6 +43,7 @@ export async function claudeJson<T>(
     const child = spawn('claude', ['-p', '--output-format', 'json', '--model', settings.claudeModel], {
       shell: true,
       windowsHide: true,
+      env: cleanEnv(),
     });
     let out = '';
     let err = '';
@@ -86,7 +97,7 @@ export function spawnClaudeRun(
 
   const settings = getSettings();
   const args = [...settings.claudeRunArgs.split(/\s+/).filter(a => a !== ''), '--model', settings.claudeModel];
-  const child = spawn('claude', args, { shell: true, windowsHide: true });
+  const child = spawn('claude', args, { shell: true, windowsHide: true, env: cleanEnv() });
 
   const makeLineSplitter = (emit: (line: string) => void) => {
     let buf = '';
