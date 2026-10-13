@@ -1,0 +1,17 @@
+Case ID,Title,Module,Steps,Expected Result
+TC-001,Valid login,Login,"1. Open the login page
+2. Enter username admin and password secret
+3. Click Sign in",Dashboard is displayed
+TC-002,Invalid password,Login,"1. Open the login page
+2. Enter username admin and password wrong
+3. Click Sign in",Error message 'Invalid credentials' is shown
+TC-003,Add item to cart,Cart,"1. Open the login page
+2. Enter username admin and password secret
+3. Click Sign in
+4. Open the product list
+5. Click Add to cart on the first product",Cart badge shows 1
+TC-004,Remove item from cart,Cart,"1. Open the login page
+2. Enter username admin and password secret
+3. Click Sign in
+4. Open the cart
+5. Click Remove on the first item",Cart is empty
