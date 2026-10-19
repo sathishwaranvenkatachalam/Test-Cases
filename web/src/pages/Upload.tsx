@@ -121,7 +121,7 @@ export default function Upload() {
         <div className="card">
           <input
             type="file"
-            accept=".xlsx,.xls,.csv"
+            accept=".xlsx,.xls,.csv,.html,.htm"
             onChange={e => setFile(e.target.files?.[0] ?? null)}
           />
           <div className="row">

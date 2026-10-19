@@ -4,7 +4,7 @@ A single-user, local web app that turns manual test-case spreadsheets into reusa
 
 ## What it does
 
-- Upload `.xlsx` / `.csv` test-case files and map their columns (heuristic guess, or "Detect with Claude").
+- Upload `.xlsx` / `.csv` / `.html` test-case files and map their columns (heuristic guess, or "Detect with Claude"). HTML files must embed the cases as a JS array of objects in a `<script>` (e.g. `const RAW = [{ id, module, scenario, steps: [...] }]`).
 - Claude normalizes steps into atomic, reusable canonical steps with `{placeholders}`, and links them to existing steps. Low-confidence matches go to a merge-review queue.
 - A planner merges each flow's cases into a shared-prefix trie so common steps (login, navigation) run once. Mutating branches are re-established with a replay.
 - Runs execute in one of two modes:

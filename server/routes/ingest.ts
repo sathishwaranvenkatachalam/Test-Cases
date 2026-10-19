@@ -11,7 +11,7 @@ import type { ColumnMapping } from '../../shared/types.js';
 
 const router = Router();
 const UPLOAD_DIR = 'data/uploads';
-const ALLOWED_EXT = ['.xlsx', '.xls', '.csv'];
+const ALLOWED_EXT = ['.xlsx', '.xls', '.csv', '.html', '.htm'];
 const MAPPING_FIELDS = ['caseId', 'title', 'flow', 'steps', 'expected', 'stepNo'] as const;
 
 const upload = multer({
@@ -63,7 +63,13 @@ function sanitizeMapping(raw: unknown, headers: string[]): ColumnMapping {
 
 router.post('/ingest/parse', upload.single('file'), wrap((req, res) => {
   if (!req.file) throw new HttpError(400, 'file required');
-  const sheets = parseWorkbook(req.file.path);
+  let sheets: ParsedSheet[];
+  try {
+    sheets = parseWorkbook(req.file.path);
+  } catch (e) {
+    fs.rmSync(req.file.path, { force: true });
+    throw new HttpError(400, (e as Error).message);
+  }
   const info = db.prepare('INSERT INTO ingest_sessions (filename, file_path) VALUES (?, ?)')
     .run(req.file.originalname, req.file.path);
   res.json({
